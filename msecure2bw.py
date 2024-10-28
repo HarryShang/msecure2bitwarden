@@ -4,7 +4,6 @@ import hashlib
 import datetime
 import json
 
-useFolder = False
 groupName = list()
 groupData = list()
 
@@ -66,7 +65,7 @@ def addField(fields, name, value):
         field["linkedId"] = None
         fields.append(field)
 
-def addRecord(line):
+def addRecord(line, useFolder):
     # split string to tokens
     # token 0 is group name
     # token 1 is collection type
@@ -556,10 +555,9 @@ def main() -> int:
     parser.add_argument("-f", "--folder", action="store_true", help = "Output folder elements instead of collection elements.")
     parser.add_argument("-e", "--encoding", default = "utf_8", help = "Specify the file encoding. Default is utf_8.")
     args = parser.parse_args()
-    useFolder = args.folder
     with open(args.file, "r", encoding = args.encoding) as f:
         for line in f:
-            addRecord(line.strip())
+            addRecord(line.strip(), args.folder)
 
     for i in range(len(groupName)):
         fname = groupName[i] + ".json"
