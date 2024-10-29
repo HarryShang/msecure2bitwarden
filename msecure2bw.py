@@ -1,11 +1,12 @@
 import sys
 import argparse
+import uuid
 import hashlib
 import datetime
 import json
 
-groupName = list()
-groupData = list()
+groupName = []
+groupData = []
 
 def getTokens(line):
     tokens = []
@@ -33,24 +34,7 @@ def getTokens(line):
 
 def getId(name):
     md5 = hashlib.md5(name.encode())
-    md5digit = md5.digest()
-    Id = ""
-    fmt = "{:02x}"
-    for i in range(4):
-        Id += fmt.format(md5digit[i])
-    Id += "-"
-    for i in range(4, 6):
-        Id += fmt.format(md5digit[i])
-    Id += "-"
-    for i in range(6, 8):
-        Id += fmt.format(md5digit[i])
-    Id += "-"
-    for i in range(8, 10):
-        Id += fmt.format(md5digit[i])
-    Id += "-"
-    for i in range(10, 16):
-        Id += fmt.format(md5digit[i])
-    return Id
+    return str(uuid.UUID(bytes = md5.digest()))
 
 def getDate():
     d = datetime.datetime.now()
@@ -58,11 +42,12 @@ def getDate():
 
 def addField(fields, name, value):
     if len(value) > 0:
-        field = dict()
-        field["name"] = name
-        field["value"] = value
-        field["type"] = 0
-        field["linkedId"] = None
+        field = {
+            "name": name,
+            "value": value,
+            "type": 0,
+            "linkedId": None
+        }
         fields.append(field)
 
 def addRecord(line, useFolder):
@@ -79,20 +64,21 @@ def addRecord(line, useFolder):
             break
     else:
         groupName.append(tokens[0])
-        group = dict()
-        group["encrypted"] = False
         if useFolder:
-            group["folders"] = list()
+            group = {
+                "encrypted": False,
+                "folders": [],
+                "items": []
+            }
         else:
-            group["collections"] = list()
-        group["items"] = list()
+            group = {
+                "encrypted": False,
+                "collections": [],
+                "items": []
+            }
         groupData.append(group)
     # get the groupId from the group list
-    groupId = 0
-    while groupId < len(groupName):
-        if tokens[0] == groupName[groupId]:
-            break
-        groupId += 1
+    groupId = groupName.index(tokens[0])
     if useFolder:
         collections = groupData[groupId].get("folders")
     else:
@@ -104,28 +90,27 @@ def addRecord(line, useFolder):
             break
     else:
         # Add collection type into collections set
-        collection = dict()
-        collection["id"] = collectionId
-        collection["name"] = tokens[1]
+        collection = {
+            "id": collectionId,
+            "name": tokens[1]
+        }
         if not useFolder:
             collection["organizationId"] = None
             collection["externalId"] = None
         collections.append(collection)
-    item = dict()
-    item["passwordHistory"] = None
-    item["revisionDate"] = getDate()
-    item["creationDate"] = getDate()
-    item["deletedDate"] = None
-    item["id"] = getId(tokens[2])
-    item["organizationId"] = None
-    if useFolder:
-        item["folderId"] = getId(tokens[1])
-    else:
-        item["folderId"] = None
-    item["reprompt"] = 0
-    item["name"] = tokens[2]
-    item["notes"] = tokens[3]
-    item["favorite"] = False
+    item = {
+        "passwordHistory": None,
+        "revisionDate": getDate(),
+        "creationDate": getDate(),
+        "deletedDate": None,
+        "id": getId(tokens[2]),
+        "organizationId": None,
+        "folderId": getId(tokens[1]) if useFolder else None,
+        "reprompt": 0,
+        "name": tokens[2],
+        "notes": tokens[3],
+        "favorite": False
+    }
     # Add other items based on the collection type
     if tokens[1] == "Bank Accounts":
         # token 4 is Account Number
@@ -135,44 +120,44 @@ def addRecord(line, useFolder):
         # token 8 is Phone No.
         # Encodee into BW card
         if len(tokens[7]) > 0 or len(tokens[8]) > 0:
-            fields = list()
+            fields = []
             addField(fields, "Branch", tokens[7])
             addField(fields, "Phone", tokens[8])
             item["fields"] = fields
         item["type"] = 3
-        card = dict()
-        card["cardholderName"] = tokens[6]
-        card["brand"] = None
-        card["number"] = tokens[4]
-        card["expMonth"] = None
-        card["expYear"] = None
-        card["code"] = tokens[5]
-        item["card"] = card
+        item["card"] = {
+            "cardholderName": tokens[6],
+            "brand": None,
+            "number": tokens[4],
+            "expMonth": None,
+            "expYear": None,
+            "code": tokens[5]
+        }
     elif tokens[1] == "Birthdays":
         # token 4 is Birthday
         # Encode into BW card
         item["type"] = 3
-        card = dict()
-        card["cardholderName"] = None
-        card["brand"] = None
-        card["number"] = None
-        card["expMonth"] = None
-        card["expYear"] = tokens[4]
-        card["code"] = None
-        item["card"] = card
+        item["card"] = {
+            "cardholderName": None,
+            "brand": None,
+            "number": None,
+            "expMonth": None,
+            "expYear": tokens[4],
+            "code": None
+        }
     elif tokens[1] == "Calling Cards":
         # token 4 is Access No.
         # token 5 is PIN
         # Encode into BW card
         item["type"] = 3
-        card = dict()
-        card["cardholderName"] = None
-        card["brand"] = None
-        card["number"] = tokens[4]
-        card["expMonth"] = None
-        card["expYear"] = None
-        card["code"] = tokens[5]
-        item["card"] = card
+        item["card"] = {
+            "cardholderName": None,
+            "brand": None,
+            "number": tokens[4],
+            "expMonth": None,
+            "expYear": None,
+            "code": tokens[5]
+        }
     elif tokens[1] == "Clothes Size":
         # token 4 is Shirt Size
         # token 5 is Pant Size
@@ -183,28 +168,26 @@ def addRecord(line, useFolder):
             len(tokens[5]) > 0 or \
             len(tokens[6]) > 0 or \
             len(tokens[7]) > 0:
-            fields = list()
+            fields = []
             addField(fields, "Shirt Size", tokens[4])
             addField(fields, "Pant Size", tokens[5])
             addField(fields, "Shoe Size", tokens[6])
             addField(fields, "Dress Size", tokens[7])
             item["fields"] = fields
         item["type"] = 2
-        note = dict()
-        note["type"] = 0
-        item["secureNote"] = note
+        item["secureNote"] = {"type": 0}
     elif tokens[1] == "Combinations":
         # token 4 is Code
         # Encode into BW card
         item["type"] = 3
-        card = dict()
-        card["cardholderName"] = None
-        card["brand"] = None
-        card["number"] = None
-        card["expMonth"] = None
-        card["expYear"] = None
-        card["code"] = tokens[4]
-        item["card"] = card
+        item["card"] = {
+            "cardholderName": None,
+            "brand": None,
+            "number": None,
+            "expMonth": None,
+            "expYear": None,
+            "code": tokens[4]
+        }
     elif tokens[1] == "Credit Cards":
         # token 4 is CodeCard No.
         # token 5 is Expiration Date
@@ -225,7 +208,7 @@ def addRecord(line, useFolder):
             len(tokens[12]) > 0 or \
             len(tokens[13]) > 0 or \
             len(tokens[14]) > 0:
-            fields = list()
+            fields = []
             addField(fields, "Bank", tokens[8])
             addField(fields, "Security Code", tokens[9])
             addField(fields, "Web", tokens[10])
@@ -235,14 +218,14 @@ def addRecord(line, useFolder):
             addField(fields, "Phone(International)", tokens[14])
             item["fields"] = fields
         item["type"] = 3
-        card = dict()
-        card["cardholderName"] = tokens[6]
-        card["brand"] = None
-        card["number"] = tokens[4]
-        card["expMonth"] = None
-        card["expYear"] = tokens[5]
-        card["code"] = tokens[7]
-        item["card"] = card
+        item["card"] = {
+            "cardholderName": tokens[6],
+            "brand": None,
+            "number": tokens[4],
+            "expMonth": None,
+            "expYear": tokens[5],
+            "code": tokens[7]
+        }
     elif tokens[1] == "Email Accounts":
         # token 4 is Username
         # token 5 is Password
@@ -251,22 +234,23 @@ def addRecord(line, useFolder):
         # Encode into BW Login
         if len(tokens[6]) > 0 or \
             len(tokens[7]) > 0:
-            fields = list()
+            fields = []
             addField(fields, "POP3 Host", tokens[6])
             addField(fields, "SMTP Host", tokens[7])
             item["fields"] = fields
         item["type"] = 1
-        login = dict()
-        uris = list()
-        uri = dict()
-        uri["match"] = None
-        uri["uri"] = None
-        uris.append(uri)
-        login["uris"] = uris
-        login["username"] = tokens[4]
-        login["password"] = tokens[5]
-        login["totp"] = None
-        item["login"] = login
+        item["login"] = {
+            "fido2Credentials": [],
+            "uris": [
+                {
+                    "match": None,
+                    "uri": None,
+                }
+            ],
+            "username": tokens[4],
+            "password": tokens[5],
+            "totp": None
+        }
     elif tokens[1] == "Frequent Flyer":
         # token 4 is Number
         # token 5 is URL
@@ -276,36 +260,37 @@ def addRecord(line, useFolder):
         # Encode into BW Login
         if len(tokens[4]) > 0 or \
             len(tokens[8]) > 0:
-            fields = list()
+            fields = []
             addField(fields, "Number", tokens[4])
             addField(fields, "Mileage", tokens[8])
             item["fields"] = fields
         item["type"] = 1
-        login = dict()
-        uris = list()
-        uri = dict()
-        uri["match"] = None
-        uri["uri"] = tokens[5]
-        uris.append(uri)
-        login["uris"] = uris
-        login["username"] = tokens[6]
-        login["password"] = tokens[7]
-        login["totp"] = None
-        item["login"] = login
+        item["login"] = {
+            "fido2Credentials": [],
+            "uris": [
+                {
+                    "match": None,
+                    "uri": tokens[5],
+                }
+            ],
+            "username": tokens[6],
+            "password": tokens[7],
+            "totp": None
+        }
     elif tokens[1] == "Government cards":
         # token 4 is Name
         # token 5 is Number
         # token 6 is Expire Date
         # Encode into BW card
         item["type"] = 3
-        card = dict()
-        card["cardholderName"] = tokens[4]
-        card["brand"] = None
-        card["number"] = tokens[5]
-        card["expMonth"] = None
-        card["expYear"] = tokens[6]
-        card["code"] = None
-        item["card"] = card
+        item["card"] = {
+            "cardholderName": tokens[4],
+            "brand": None,
+            "number": tokens[5],
+            "expMonth": None,
+            "expYear": tokens[6],
+            "code": None
+        }
     elif tokens[1] == "Identity":
         # token 4 is First Name
         # token 5 is Last Name
@@ -331,7 +316,7 @@ def addRecord(line, useFolder):
             len(tokens[19]) > 0 or \
             len(tokens[20]) > 0 or \
             len(tokens[21]) > 0:
-            fields = list()
+            fields = []
             addField(fields, "Office Phone", tokens[16])
             addField(fields, "Mobile Phone", tokens[17])
             addField(fields, "Email2", tokens[19])
@@ -339,26 +324,26 @@ def addRecord(line, useFolder):
             addField(fields, "Website", tokens[21])
             item["fields"] = fields
         item["type"] = 4
-        id = dict()
-        id["title"] = tokens[8]
-        id["firstName"] = tokens[4]
-        id["middleName"] = tokens[6]
-        id["lastName"] = tokens[5]
-        id["address1"] = tokens[9]
-        id["address2"] = tokens[10]
-        id["address3"] = None
-        id["city"] = tokens[11]
-        id["state"] = tokens[12]
-        id["postalCode"] = tokens[14]
-        id["country"] = tokens[13]
-        id["company"] = tokens[7]
-        id["email"] = tokens[18]
-        id["phone"] = tokens[15]
-        id["ssn"] = None
-        id["username"] = None
-        id["passportNumber"] = None
-        id["licenseNumber"] = None
-        item["identity"] = id
+        item["identity"] = {
+            "title": tokens[8],
+            "firstName": tokens[4],
+            "middleName": tokens[6],
+            "lastName": tokens[5],
+            "address1": tokens[9],
+            "address2": tokens[10],
+            "address3": None,
+            "city": tokens[11],
+            "state": tokens[12],
+            "postalCode": tokens[14],
+            "country": tokens[13],
+            "company": tokens[7],
+            "email": tokens[18],
+            "phone": tokens[15],
+            "ssn": None,
+            "username": None,
+            "passportNumber": None,
+            "licenseNumber": None
+        }
     elif tokens[1] == "Insurance":
         # token 4 is Policy No.
         # token 5 is Group No.
@@ -371,7 +356,7 @@ def addRecord(line, useFolder):
             len(tokens[6]) > 0 or \
             len(tokens[7]) > 0 or \
             len(tokens[8]) > 0:
-            fields = list()
+            fields = []
             addField(fields, "Policy No.", tokens[4])
             addField(fields, "Group No.", tokens[5])
             addField(fields, "Insured", tokens[6])
@@ -379,23 +364,21 @@ def addRecord(line, useFolder):
             addField(fields, "Phone", tokens[8])
             item["fields"] = fields
         item["type"] = 2
-        note = dict()
-        note["type"] = 0
-        item["secureNote"] = note
+        item["secureNote"] = {"type": 0}
     elif tokens[1] == "Memberships":
         # token 4 is Account No.
         # token 5 is Name
         # token 6 is Date
         # Encode into BW card
         item["type"] = 3
-        card = dict()
-        card["cardholderName"] = tokens[5]
-        card["brand"] = None
-        card["number"] = tokens[4]
-        card["expMonth"] = None
-        card["expYear"] = tokens[6]
-        card["code"] = None
-        item["card"] = card
+        item["card"] = {
+            "cardholderName": tokens[5],
+            "brand": None,
+            "number": tokens[4],
+            "expMonth": None,
+            "expYear": tokens[6],
+            "code": None
+        }
     elif tokens[1] == "Passport":
         # token 4 is Name
         # token 5 is Number
@@ -414,7 +397,7 @@ def addRecord(line, useFolder):
             len(tokens[9]) > 0 or \
             len(tokens[10]) > 0 or \
             len(tokens[11]) > 0:
-            fields = list()
+            fields = []
             addField(fields, "Name", tokens[4])
             addField(fields, "Number", tokens[5])
             addField(fields, "Type", tokens[6])
@@ -425,9 +408,7 @@ def addRecord(line, useFolder):
             addField(fields, "Place of Birth", tokens[11])
             item["fields"] = fields
         item["type"] = 2
-        note = dict()
-        note["type"] = 0
-        item["secureNote"] = note
+        item["secureNote"] = {"type": 0}
     elif tokens[1] == "Prescriptions":
         # token 4 is RX Number
         # token 5 is Name
@@ -440,7 +421,7 @@ def addRecord(line, useFolder):
             len(tokens[6]) > 0 or \
             len(tokens[7]) > 0 or \
             len(tokens[8]) > 0:
-            fields = list()
+            fields = []
             addField(fields, "RX Number", tokens[4])
             addField(fields, "Name", tokens[5])
             addField(fields, "Doctor", tokens[6])
@@ -448,35 +429,33 @@ def addRecord(line, useFolder):
             addField(fields, "Phone", tokens[8])
             item["fields"] = fields
         item["type"] = 2
-        note = dict()
-        note["type"] = 0
-        item["secureNote"] = note
+        item["secureNote"] = {"type": 0}
     elif tokens[1] == "Registration Codes":
         # token 4 is Number
         # token 5 is Date
         # Encode into BW card
         item["type"] = 3
-        card = dict()
-        card["cardholderName"] = None
-        card["brand"] = None
-        card["number"] = tokens[4]
-        card["expMonth"] = None
-        card["expYear"] = tokens[5]
-        card["code"] = None
-        item["card"] = card
+        item["card"] = {
+            "cardholderName": None,
+            "brand": None,
+            "number": tokens[4],
+            "expMonth": None,
+            "expYear": tokens[5],
+            "code": None
+        }
     elif tokens[1] == "Social Security":
         # token 4 is Name
         # token 5 is Number
         # Encode into BW card
         item["type"] = 3
-        card = dict()
-        card["cardholderName"] = tokens[4]
-        card["brand"] = None
-        card["number"] = tokens[5]
-        card["expMonth"] = None
-        card["expYear"] = None
-        card["code"] = None
-        item["card"] = card
+        item["card"] = {
+            "cardholderName": tokens[4],
+            "brand": None,
+            "number": tokens[5],
+            "expMonth": None,
+            "expYear": None,
+            "code": None
+        }
     elif tokens[1] == "Vehicle Info":
         # token 4 is License No.
         # token 5 is VIN
@@ -487,65 +466,59 @@ def addRecord(line, useFolder):
             len(tokens[5]) > 0 or \
             len(tokens[6]) > 0 or \
             len(tokens[7]) > 0:
-            fields = list()
+            fields = []
             addField(fields, "License No.", tokens[4])
             addField(fields, "VIN", tokens[5])
             addField(fields, "Date Purchased", tokens[6])
             addField(fields, "Tire Size", tokens[7])
             item["fields"] = fields
         item["type"] = 2
-        note = dict()
-        note["type"] = 0
-        item["secureNote"] = note
+        item["secureNote"] = {"type": 0}
     elif tokens[1] == "Voice Mail":
         # token 4 is Access No.
         # token 5 is PIN
         # Encode into BW card
         item["type"] = 3
-        card = dict()
-        card["cardholderName"] = None
-        card["brand"] = None
-        card["number"] = tokens[4]
-        card["expMonth"] = None
-        card["expYear"] = None
-        card["code"] = tokens[5]
-        item["card"] = card
+        item["card"] = {
+            "cardholderName": None,
+            "brand": None,
+            "number": tokens[4],
+            "expMonth": None,
+            "expYear": None,
+            "code": tokens[5]
+        }
     elif tokens[1] == "Web Logins":
         # token 4 is URL
         # token 5 is Username
         # token 6 is Password
         # Encode into BW Login
         item["type"] = 1
-        login = dict()
-        uris = list()
-        uri = dict()
-        uri["match"] = None
-        uri["uri"] = tokens[4]
-        uris.append(uri)
-        login["uris"] = uris
-        login["username"] = tokens[5]
-        login["password"] = tokens[6]
-        login["totp"] = None
-        item["login"] = login
+        item["login"] = {
+            "fido2Credentials": [],
+            "uris": [
+                {
+                    "match": None,
+                    "uri": tokens[4],
+                }
+            ],
+            "username": tokens[5],
+            "password": tokens[6],
+            "totp": None
+        }
     else:
         # Handle Unassigned, Note and other undefined collection
         # Encode into BW notes
-        fields = list()
+        fields = []
         fid = 1
         for i in range(4, len(tokens)):
             if len(tokens[i]) > 0:
                 addField(fields, f"Field{fid}", tokens[i])
                 fid += 1
         item["fields"] = fields
-
         item["type"] = 2
-        note = dict()
-        note["type"] = 0
-        item["secureNote"] = note
-    if useFolder:
-        item["collectionIds"] = None
-    else:
-        item["collectionIds"] = collectionId
+        item["secureNote"] = {"type": 0}
+    
+    item["collectionIds"] = [None] if useFolder else [collectionId]
     # Add into items
     items.append(item)
 
@@ -562,7 +535,8 @@ def main() -> int:
     for i in range(len(groupName)):
         fname = groupName[i] + ".json"
         outstr = json.dumps(groupData[i], ensure_ascii = False, indent = 4)
-        outstr = outstr.replace("\\\\", "\\")
+        # Do not escape \n
+        outstr = outstr.replace("\\\\n", "\\n")
         with open(fname, "w", encoding = args.encoding) as f:
             f.write(outstr)
         print(fname + " generated")
