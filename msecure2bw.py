@@ -1,3 +1,5 @@
+""" Convert msecure csv file to bitwarden json file """
+
 import sys
 import argparse
 import uuid
@@ -8,7 +10,8 @@ import json
 groupName = []
 groupData = []
 
-def getTokens(line):
+def gettokens(line):
+    """ Get tokens from string """
     tokens = []
     start = 0
     end = line.find(',', start)
@@ -25,22 +28,26 @@ def getTokens(line):
             item = line[start:end]
         tokens.append(item)
         start = end + 1
-        if end < 0: break
+        if end < 0:
+            break
         end = line.find(',', start)
     if start > 0:
         item = line[start:]
         tokens.append(item)
     return tokens
 
-def getId(name):
+def getid(name):
+    """ Calculate ID string from name """
     md5 = hashlib.md5(name.encode())
     return str(uuid.UUID(bytes = md5.digest()))
 
-def getDate():
+def getdate():
+    """ Return current date string """
     d = datetime.datetime.now()
     return d.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
-def addField(fields, name, value):
+def addfield(fields, name, value):
+    """ Add name and value into fields """
     if len(value) > 0:
         field = {
             "name": name,
@@ -50,21 +57,22 @@ def addField(fields, name, value):
         }
         fields.append(field)
 
-def addRecord(line, useFolder):
+def addrecord(line, usefolder):
+    """ Add one record """
     # split string to tokens
     # token 0 is group name
     # token 1 is collection type
     # token 2 is item name
     # token 3 is item notes
     # other tokens are based on the collection type
-    tokens = getTokens(line)
+    tokens = gettokens(line)
     # Add this group into group list
-    for i in range(len(groupName)):
-        if tokens[0] == groupName[i]:
+    for gname in groupName:
+        if tokens[0] == gname:
             break
     else:
         groupName.append(tokens[0])
-        if useFolder:
+        if usefolder:
             group = {
                 "encrypted": False,
                 "folders": [],
@@ -77,35 +85,35 @@ def addRecord(line, useFolder):
                 "items": []
             }
         groupData.append(group)
-    # get the groupId from the group list
-    groupId = groupName.index(tokens[0])
-    if useFolder:
-        collections = groupData[groupId].get("folders")
+    # get the groupid from the group list
+    groupid = groupName.index(tokens[0])
+    if usefolder:
+        collections = groupData[groupid].get("folders")
     else:
-        collections = groupData[groupId].get("collections")
-    collectionId = getId(tokens[1])
-    items = groupData[groupId].get("items")
-    for i in range(len(collections)):
-        if collections[i].get("name") == tokens[1]:
+        collections = groupData[groupid].get("collections")
+    collectionid = getid(tokens[1])
+    items = groupData[groupid].get("items")
+    for col in collections:
+        if col.get("name") == tokens[1]:
             break
     else:
         # Add collection type into collections set
         collection = {
-            "id": collectionId,
+            "id": collectionid,
             "name": tokens[1]
         }
-        if not useFolder:
+        if not usefolder:
             collection["organizationId"] = None
             collection["externalId"] = None
         collections.append(collection)
     item = {
         "passwordHistory": None,
-        "revisionDate": getDate(),
-        "creationDate": getDate(),
+        "revisionDate": getdate(),
+        "creationDate": getdate(),
         "deletedDate": None,
-        "id": getId(tokens[2]),
+        "id": getid(tokens[2]),
         "organizationId": None,
-        "folderId": getId(tokens[1]) if useFolder else None,
+        "folderId": getid(tokens[1]) if usefolder else None,
         "reprompt": 0,
         "name": tokens[2],
         "notes": tokens[3],
@@ -121,8 +129,8 @@ def addRecord(line, useFolder):
         # Encodee into BW card
         if len(tokens[7]) > 0 or len(tokens[8]) > 0:
             fields = []
-            addField(fields, "Branch", tokens[7])
-            addField(fields, "Phone", tokens[8])
+            addfield(fields, "Branch", tokens[7])
+            addfield(fields, "Phone", tokens[8])
             item["fields"] = fields
         item["type"] = 3
         item["card"] = {
@@ -165,14 +173,14 @@ def addRecord(line, useFolder):
         # token 7 is Dress Size
         # Encode into BW notes
         if len(tokens[4]) > 0 or \
-            len(tokens[5]) > 0 or \
-            len(tokens[6]) > 0 or \
-            len(tokens[7]) > 0:
+                len(tokens[5]) > 0 or \
+                len(tokens[6]) > 0 or \
+                len(tokens[7]) > 0:
             fields = []
-            addField(fields, "Shirt Size", tokens[4])
-            addField(fields, "Pant Size", tokens[5])
-            addField(fields, "Shoe Size", tokens[6])
-            addField(fields, "Dress Size", tokens[7])
+            addfield(fields, "Shirt Size", tokens[4])
+            addfield(fields, "Pant Size", tokens[5])
+            addfield(fields, "Shoe Size", tokens[6])
+            addfield(fields, "Dress Size", tokens[7])
             item["fields"] = fields
         item["type"] = 2
         item["secureNote"] = {"type": 0}
@@ -202,20 +210,20 @@ def addRecord(line, useFolder):
         # token 14 is Phone(International)
         # Encode into BW card
         if len(tokens[8]) > 0 or \
-            len(tokens[9]) > 0 or \
-            len(tokens[10]) > 0 or \
-            len(tokens[11]) > 0 or \
-            len(tokens[12]) > 0 or \
-            len(tokens[13]) > 0 or \
-            len(tokens[14]) > 0:
+                len(tokens[9]) > 0 or \
+                len(tokens[10]) > 0 or \
+                len(tokens[11]) > 0 or \
+                len(tokens[12]) > 0 or \
+                len(tokens[13]) > 0 or \
+                len(tokens[14]) > 0:
             fields = []
-            addField(fields, "Bank", tokens[8])
-            addField(fields, "Security Code", tokens[9])
-            addField(fields, "Web", tokens[10])
-            addField(fields, "User Name", tokens[11])
-            addField(fields, "Password", tokens[12])
-            addField(fields, "Phone", tokens[13])
-            addField(fields, "Phone(International)", tokens[14])
+            addfield(fields, "Bank", tokens[8])
+            addfield(fields, "Security Code", tokens[9])
+            addfield(fields, "Web", tokens[10])
+            addfield(fields, "User Name", tokens[11])
+            addfield(fields, "Password", tokens[12])
+            addfield(fields, "Phone", tokens[13])
+            addfield(fields, "Phone(International)", tokens[14])
             item["fields"] = fields
         item["type"] = 3
         item["card"] = {
@@ -233,10 +241,10 @@ def addRecord(line, useFolder):
         # token 7 is SMTP Host
         # Encode into BW Login
         if len(tokens[6]) > 0 or \
-            len(tokens[7]) > 0:
+                len(tokens[7]) > 0:
             fields = []
-            addField(fields, "POP3 Host", tokens[6])
-            addField(fields, "SMTP Host", tokens[7])
+            addfield(fields, "POP3 Host", tokens[6])
+            addfield(fields, "SMTP Host", tokens[7])
             item["fields"] = fields
         item["type"] = 1
         item["login"] = {
@@ -259,10 +267,10 @@ def addRecord(line, useFolder):
         # token 8 is Mileage
         # Encode into BW Login
         if len(tokens[4]) > 0 or \
-            len(tokens[8]) > 0:
+                len(tokens[8]) > 0:
             fields = []
-            addField(fields, "Number", tokens[4])
-            addField(fields, "Mileage", tokens[8])
+            addfield(fields, "Number", tokens[4])
+            addfield(fields, "Mileage", tokens[8])
             item["fields"] = fields
         item["type"] = 1
         item["login"] = {
@@ -312,16 +320,16 @@ def addRecord(line, useFolder):
         # token 21 is Website
         # Encode into BW identity
         if len(tokens[16]) > 0 or \
-            len(tokens[17]) > 0 or \
-            len(tokens[19]) > 0 or \
-            len(tokens[20]) > 0 or \
-            len(tokens[21]) > 0:
+                len(tokens[17]) > 0 or \
+                len(tokens[19]) > 0 or \
+                len(tokens[20]) > 0 or \
+                len(tokens[21]) > 0:
             fields = []
-            addField(fields, "Office Phone", tokens[16])
-            addField(fields, "Mobile Phone", tokens[17])
-            addField(fields, "Email2", tokens[19])
-            addField(fields, "Skype", tokens[20])
-            addField(fields, "Website", tokens[21])
+            addfield(fields, "Office Phone", tokens[16])
+            addfield(fields, "Mobile Phone", tokens[17])
+            addfield(fields, "Email2", tokens[19])
+            addfield(fields, "Skype", tokens[20])
+            addfield(fields, "Website", tokens[21])
             item["fields"] = fields
         item["type"] = 4
         item["identity"] = {
@@ -352,16 +360,16 @@ def addRecord(line, useFolder):
         # token 8 is Phone
         # Encode into BW notes
         if len(tokens[4]) > 0 or \
-            len(tokens[5]) > 0 or \
-            len(tokens[6]) > 0 or \
-            len(tokens[7]) > 0 or \
-            len(tokens[8]) > 0:
+                len(tokens[5]) > 0 or \
+                len(tokens[6]) > 0 or \
+                len(tokens[7]) > 0 or \
+                len(tokens[8]) > 0:
             fields = []
-            addField(fields, "Policy No.", tokens[4])
-            addField(fields, "Group No.", tokens[5])
-            addField(fields, "Insured", tokens[6])
-            addField(fields, "Date", tokens[7])
-            addField(fields, "Phone", tokens[8])
+            addfield(fields, "Policy No.", tokens[4])
+            addfield(fields, "Group No.", tokens[5])
+            addfield(fields, "Insured", tokens[6])
+            addfield(fields, "Date", tokens[7])
+            addfield(fields, "Phone", tokens[8])
             item["fields"] = fields
         item["type"] = 2
         item["secureNote"] = {"type": 0}
@@ -390,22 +398,22 @@ def addRecord(line, useFolder):
         # token 11 is Place of Birth
         # Encode into BW notes
         if len(tokens[4]) > 0 or \
-            len(tokens[5]) > 0 or \
-            len(tokens[6]) > 0 or \
-            len(tokens[7]) > 0 or \
-            len(tokens[8]) > 0 or \
-            len(tokens[9]) > 0 or \
-            len(tokens[10]) > 0 or \
-            len(tokens[11]) > 0:
+                len(tokens[5]) > 0 or \
+                len(tokens[6]) > 0 or \
+                len(tokens[7]) > 0 or \
+                len(tokens[8]) > 0 or \
+                len(tokens[9]) > 0 or \
+                len(tokens[10]) > 0 or \
+                len(tokens[11]) > 0:
             fields = []
-            addField(fields, "Name", tokens[4])
-            addField(fields, "Number", tokens[5])
-            addField(fields, "Type", tokens[6])
-            addField(fields, "Issuing Country", tokens[7])
-            addField(fields, "Issuing Authority", tokens[8])
-            addField(fields, "Nationality", tokens[9])
-            addField(fields, "Exoiration", tokens[10])
-            addField(fields, "Place of Birth", tokens[11])
+            addfield(fields, "Name", tokens[4])
+            addfield(fields, "Number", tokens[5])
+            addfield(fields, "Type", tokens[6])
+            addfield(fields, "Issuing Country", tokens[7])
+            addfield(fields, "Issuing Authority", tokens[8])
+            addfield(fields, "Nationality", tokens[9])
+            addfield(fields, "Exoiration", tokens[10])
+            addfield(fields, "Place of Birth", tokens[11])
             item["fields"] = fields
         item["type"] = 2
         item["secureNote"] = {"type": 0}
@@ -417,16 +425,16 @@ def addRecord(line, useFolder):
         # token 8 is Phone
         # Encode into BW notes
         if len(tokens[4]) > 0 or \
-            len(tokens[5]) > 0 or \
-            len(tokens[6]) > 0 or \
-            len(tokens[7]) > 0 or \
-            len(tokens[8]) > 0:
+                len(tokens[5]) > 0 or \
+                len(tokens[6]) > 0 or \
+                len(tokens[7]) > 0 or \
+                len(tokens[8]) > 0:
             fields = []
-            addField(fields, "RX Number", tokens[4])
-            addField(fields, "Name", tokens[5])
-            addField(fields, "Doctor", tokens[6])
-            addField(fields, "Pharmacy", tokens[7])
-            addField(fields, "Phone", tokens[8])
+            addfield(fields, "RX Number", tokens[4])
+            addfield(fields, "Name", tokens[5])
+            addfield(fields, "Doctor", tokens[6])
+            addfield(fields, "Pharmacy", tokens[7])
+            addfield(fields, "Phone", tokens[8])
             item["fields"] = fields
         item["type"] = 2
         item["secureNote"] = {"type": 0}
@@ -463,14 +471,14 @@ def addRecord(line, useFolder):
         # token 7 is Tire Size
         # Encode into BW notes
         if len(tokens[4]) > 0 or \
-            len(tokens[5]) > 0 or \
-            len(tokens[6]) > 0 or \
-            len(tokens[7]) > 0:
+                len(tokens[5]) > 0 or \
+                len(tokens[6]) > 0 or \
+                len(tokens[7]) > 0:
             fields = []
-            addField(fields, "License No.", tokens[4])
-            addField(fields, "VIN", tokens[5])
-            addField(fields, "Date Purchased", tokens[6])
-            addField(fields, "Tire Size", tokens[7])
+            addfield(fields, "License No.", tokens[4])
+            addfield(fields, "VIN", tokens[5])
+            addfield(fields, "Date Purchased", tokens[6])
+            addfield(fields, "Tire Size", tokens[7])
             item["fields"] = fields
         item["type"] = 2
         item["secureNote"] = {"type": 0}
@@ -512,13 +520,13 @@ def addRecord(line, useFolder):
         fid = 1
         for i in range(4, len(tokens)):
             if len(tokens[i]) > 0:
-                addField(fields, f"Field{fid}", tokens[i])
+                addfield(fields, f"Field{fid}", tokens[i])
                 fid += 1
         item["fields"] = fields
         item["type"] = 2
         item["secureNote"] = {"type": 0}
-    
-    item["collectionIds"] = [None] if useFolder else [collectionId]
+
+    item["collectionIds"] = [None] if usefolder else [collectionid]
     # Add into items
     items.append(item)
 
@@ -530,11 +538,11 @@ def main() -> int:
     args = parser.parse_args()
     with open(args.file, "r", encoding = args.encoding) as f:
         for line in f:
-            addRecord(line.strip(), args.folder)
+            addrecord(line.strip(), args.folder)
 
-    for i in range(len(groupName)):
-        fname = groupName[i] + ".json"
-        outstr = json.dumps(groupData[i], ensure_ascii = False, indent = 4)
+    for gname in groupName:
+        fname = gname + ".json"
+        outstr = json.dumps(groupData[groupName.index(gname)], ensure_ascii = False, indent = 4)
         # Do not escape \n
         outstr = outstr.replace("\\\\n", "\\n")
         with open(fname, "w", encoding = args.encoding) as f:
